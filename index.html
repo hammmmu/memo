@@ -466,7 +466,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
         <button class="body" data-open="${t.id}"><span class="title">${t.star ? '<span class="st" aria-label="星號">★</span>' : ""}<span>${esc(t.title)}</span></span>${meta ? `<span class="meta">${meta}</span>` : ""}</button>
         <div class="acts">${subs.length ? `<button class="subtog" data-subtog="${t.id}" aria-expanded="${!!subOpen}" aria-label="子項目 ${subDone}/${subs.length}">${subDone}/${subs.length} ${subOpen ? "▴" : "▾"}</button>` : ""}${t.done ? "" : `<button class="ibtn" data-cal="${t.id}" aria-label="加到行事曆">${ICON.cal}</button>`}</div>
         ${subOpen ? `<div class="subs">${subs.map(s => `<label class="ck ${s.done ? "on" : ""}"><input type="checkbox" data-sub="${t.id}|${s.id}" ${s.done ? "checked" : ""}><span>${esc(s.text)}</span></label>`).join("")}
-          <form class="add-item" data-addsub="${t.id}"><input type="text" placeholder="再加一項" maxlength="60" autocomplete="off"><button class="txt-btn" type="submit">加入</button></form></div>` : ""}
+          <form novalidate class="add-item" data-addsub="${t.id}"><input type="text" placeholder="再加一項" maxlength="60" autocomplete="off"><button class="txt-btn" type="submit">加入</button></form></div>` : ""}
       </div>
     </div>`;
   }
@@ -553,7 +553,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
   function renderMe() {
     const rows = state.lists.map(l => {
       const n = state.tasks.filter(t => t.listId === l.id && !t.done).length;
-      if (ui.editingList === l.id) return `<form class="row" data-renameform="${l.id}"><span class="grow"><input type="text" id="rn-${l.id}" value="${esc(l.name)}" maxlength="12"></span><button class="txt-btn" type="submit">完成</button></form>`;
+      if (ui.editingList === l.id) return `<form novalidate class="row" data-renameform="${l.id}"><span class="grow"><input type="text" id="rn-${l.id}" value="${esc(l.name)}" maxlength="12"></span><button class="txt-btn" type="submit">完成</button></form>`;
       if (ui.confirmList === l.id) return `<div class="row"><span class="grow">刪除「${esc(l.name)}」和裡面 ${state.tasks.filter(t => t.listId === l.id).length} 項任務？</span><button class="txt-btn danger" data-dellistyes="${l.id}">刪除</button><button class="txt-btn" data-cancel="1">取消</button></div>`;
       return `<div class="row"><span class="grow">${esc(l.name)} <span style="color:var(--muted);font-size:12px">${n} 項未完成</span></span><button class="txt-btn" data-rename="${l.id}">改名</button><button class="txt-btn danger" data-dellist="${l.id}">刪除</button></div>`;
     }).join("");
@@ -561,7 +561,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
     const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
     return `<div class="panel">
         <h2>分類</h2>${rows}
-        <form class="row" id="newListForm"><span class="grow"><input type="text" id="newListName" placeholder="新分類，例如：攝影案" maxlength="12"></span><button class="txt-btn" type="submit">新增</button></form>
+        <form novalidate class="row" id="newListForm"><span class="grow"><input type="text" id="newListName" placeholder="新分類，例如：攝影案" maxlength="12"></span><button class="txt-btn" type="submit">新增</button></form>
       </div>
       <div class="panel">
         <h2>統計</h2>
@@ -685,7 +685,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
   }
   function projForm(s) {
     const d = s.draft, T = TYPES[d.type] || TYPES.post;
-    return `<form class="sheet gutter" id="projForm" role="dialog" aria-label="${s.isNew ? "新增計畫" : "編輯計畫"}">
+    return `<form novalidate class="sheet gutter" id="projForm" role="dialog" aria-label="${s.isNew ? "新增計畫" : "編輯計畫"}">
       <span class="grab"></span><h3>${s.isNew ? "新增計畫" : "編輯計畫"}</h3>
       <div class="seg" role="radiogroup" aria-label="類型">${Object.entries(TYPES).map(([k, t]) => `<button type="button" role="radio" aria-checked="${k === d.type}" data-ptype="${k}">${t.label}</button>`).join("")}</div>
       <label class="field">名稱<input type="text" id="pName" value="${esc(d.name)}" maxlength="60" placeholder="${T.ph}" autocomplete="off"></label>
@@ -693,7 +693,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
       <div class="two">
         <label class="field">${T.due}<input type="date" id="pDue" value="${d.due}"></label>
         ${d.stages.length ? `<div class="field">目前進度<b style="color:var(--ink);font-size:20px;padding:8px 0">${stageAvg(d.stages)}%</b></div>`
-          : `<label class="field">目前進度 %<input type="number" id="pProg" min="0" max="100" step="5" value="${d.progress}" inputmode="numeric"></label>`}
+          : `<label class="field">目前進度 %<input type="number" id="pProg" min="0" max="100" step="1" value="${d.progress}" inputmode="numeric"></label>`}
       </div>
       <div class="blk"><h4>${T.label}階段<span class="n">${d.stages.length ? "每個階段 0–100%，總進度取平均" : "可不填，這次要做哪些就加哪些"}</span></h4>
         <div>${d.stages.map((st, i) => `<div class="ck"><span>${esc(st.name)}${st.pct ? `<small style="color:var(--muted)">　${st.pct}%</small>` : ""}</span>
@@ -706,7 +706,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
   }
   function sessionForm(s) {
     const p = project(s.pid), d = s.draft;
-    return `<form class="sheet gutter" id="sessForm" role="dialog" aria-label="安排工作">
+    return `<form novalidate class="sheet gutter" id="sessForm" role="dialog" aria-label="安排工作">
       <span class="grab"></span><h3>安排工作</h3><p class="sub">${esc(p.name)}・現在 ${p.progress}%・${dueText(p.due)}</p>
       <label class="field">哪一天<input type="date" id="sDate" value="${d.date}"></label>
       <div class="two"><label class="field">開始<input type="time" id="sStart" value="${d.start}"></label><label class="field">結束<input type="time" id="sEnd" value="${d.end}"></label></div>
@@ -718,7 +718,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
   }
   function reportForm(s) {
     const p = project(s.pid), ss = p.sessions.find(x => x.id === s.sid);
-    return `<form class="sheet gutter" id="reportForm" role="dialog" aria-label="回報進度">
+    return `<form novalidate class="sheet gutter" id="reportForm" role="dialog" aria-label="回報進度">
       <span class="grab"></span><h3>回報今天的進度</h3>
       <p class="sub">${esc(p.name)}・${md(ss.date)} ${ss.start}–${ss.end}・原本 ${p.progress}%，目標 ${ss.target}%</p>
       <div class="big"><b id="rVal">${s.value}%</b><span>實際做到</span></div>
@@ -736,7 +736,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
       const items = x.items.filter(i => i.cat === cat);
       return `<div class="blk"><h4>${label}<span class="n">${items.filter(i => i.done).length}/${items.length}</span></h4>
         <div>${items.map(i => `<label class="ck ${i.done ? "on" : ""}"><input type="checkbox" data-item="${x.id}|${i.id}" ${i.done ? "checked" : ""}><span>${esc(i.text)}</span><button type="button" class="x" data-itemdel="${x.id}|${i.id}" aria-label="刪除">×</button></label>`).join("")}</div>
-        <form class="add-item" data-additem="${cat}"><input type="text" placeholder="${ph}" maxlength="60" autocomplete="off"><button class="txt-btn" type="submit">加入</button></form>
+        <form novalidate class="add-item" data-additem="${cat}"><input type="text" placeholder="${ph}" maxlength="60" autocomplete="off"><button class="txt-btn" type="submit">加入</button></form>
         ${cat === "gear" ? `<div class="quick"><button type="button" data-kit="${x.id}">帶入常用器材</button>${items.length ? `<button type="button" data-savekit="${x.id}">把這些存成常用器材</button>` : ""}</div>` : ""}
       </div>`;
     };
@@ -756,7 +756,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
   }
   function prepForm(s) {
     const d = s.draft;
-    return `<form class="sheet gutter" id="prepForm" role="dialog" aria-label="${s.isNew ? "新增前置準備" : "編輯"}">
+    return `<form novalidate class="sheet gutter" id="prepForm" role="dialog" aria-label="${s.isNew ? "新增前置準備" : "編輯"}">
       <span class="grab"></span><h3>${s.isNew ? "新增接下來的工作" : "編輯"}</h3>
       <label class="field">劇組或案子名稱<input type="text" id="xName" value="${esc(d.name)}" maxlength="60" placeholder="例如：《夏至》畢製劇組" autocomplete="off"></label>
       <div class="two">
@@ -825,7 +825,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
 
     const t = s.draft;
     const listOpts = state.lists.map(l => `<option value="${l.id}" ${l.id === t.listId ? "selected" : ""}>${esc(l.name)}</option>`).join("");
-    root.innerHTML = `<div class="shade" data-shade="1"><form class="sheet gutter" id="taskForm" role="dialog" aria-label="${s.isNew ? "新增任務" : "編輯任務"}">
+    root.innerHTML = `<div class="shade" data-shade="1"><form novalidate class="sheet gutter" id="taskForm" role="dialog" aria-label="${s.isNew ? "新增任務" : "編輯任務"}">
       <span class="grab"></span>
       <h3>${s.isNew ? "新增任務" : "編輯任務"}</h3>
       <label class="field">要做什麼<input type="text" id="fTitle" value="${esc(t.title)}" maxlength="120" autocomplete="off" placeholder="例如：交修圖檔給客戶"></label>
@@ -876,6 +876,8 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
   const setX = (card, x) => { card.style.transform = x ? `translateX(${x}px)` : ""; };
   function closeOpenRow() { if (openRow) { setX(openRow, 0); openRow = null; } }
 
+  let downOnShade = false;
+  document.addEventListener("pointerdown", e => { downOnShade = !!(e.target.dataset && e.target.dataset.shade); }, true);
   document.addEventListener("pointerdown", e => {
     const card = e.target.closest(".card");
     if (!card || e.button > 0) { if (!e.target.closest(".swipe-acts")) closeOpenRow(); return; }
@@ -973,7 +975,7 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
     const card = el.closest(".card");
     if (card && card === openRow) { closeOpenRow(); return; }
 
-    if (d.shade && e.target === el) { ui.sheet = null; renderSheet(); return; }
+    if (d.shade && e.target === el) { if (downOnShade) { ui.sheet = null; renderSheet(); } return; }
     if (d.tab) { ui.tab = d.tab; ui.showAllDone = false; ui.editingList = ui.confirmList = null; render(); window.scrollTo(0, 0); return; }
     if (d.goto) { ui.tab = d.goto; render(); return; }
     if (d.chip) { state.active = d.chip; ui.showAllDone = false; commit(); return; }
@@ -1354,6 +1356,10 @@ input[type=range] { width: 100%; accent-color: var(--accent) }
     );
     commit();
   }
+
+  // show unexpected errors on screen, so a broken button never just "does nothing"
+  window.addEventListener("error", e => toast("出錯了：" + (e.message || "未知錯誤") + "，請截圖給開發者"));
+  window.addEventListener("unhandledrejection", e => toast("出錯了：" + ((e.reason && e.reason.message) || "未知錯誤")));
 
   // ---------- boot ----------
   state = load() || fresh();

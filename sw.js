@@ -1,5 +1,5 @@
 // Keeps the app opening without a connection. Bump VERSION after changing any file.
-const VERSION = "memo-v4";
+const VERSION = "memo-v5";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
