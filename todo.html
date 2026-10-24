@@ -1,0 +1,566 @@
+<title>打勾備忘錄</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: phone app shell. Sticky top bar + category chips, task cards grouped by when they are due, floating + button, bottom tab bar (任務 / 日曆 / 我的). */
+:root {
+  --bg: #f2f4f8;
+  --card: #ffffff;
+  --ink: #1d2433;
+  --muted: #8a93a3;
+  --line: #e3e7ee;
+  --accent: #0a9cf5;
+  --accent-soft: #d9efff;
+  --chip: #e8ebf0;
+  --late: #c8102e;
+  --flag: #f05a28;
+  --shade: rgba(16, 22, 34, .38);
+  --f-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f131a; --card: #1a2029; --ink: #e7eaf0; --muted: #7d8696; --line: #2a313c;
+  --accent: #3fb3ff; --accent-soft: #143650; --chip: #232a35; --late: #ff6b7d; --flag: #ff8a5c; --shade: rgba(0,0,0,.55);
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f131a; --card: #1a2029; --ink: #e7eaf0; --muted: #7d8696; --line: #2a313c;
+  --accent: #3fb3ff; --accent-soft: #143650; --chip: #232a35; --late: #ff6b7d; --flag: #ff8a5c; --shade: rgba(0,0,0,.55);
+  color-scheme: dark }
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent }
+html, body { min-height: 100% }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45 }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg) }
+button, input, select { font: inherit; color: inherit }
+button { cursor: pointer; background: none; border: 0; padding: 0 }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+svg { display: block }
+.app { max-width: 560px; margin: 0 auto; padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+
+/* top bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px 6px; display: flex; flex-direction: column; gap: 10px }
+.bar { display: flex; align-items: center; gap: 6px }
+.bar h1 { font-size: 17px; font-weight: 700; margin: 0 auto 0 4px }
+.ibtn { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: var(--ink) }
+.ibtn:hover { background: var(--chip) }
+.sync { font-size: 11px; color: var(--muted); white-space: nowrap }
+.search { display: flex; gap: 8px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px }
+.search input { border: 0; background: none; flex: 1; min-width: 0; outline: none }
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px }
+.chips::-webkit-scrollbar { display: none }
+.chip { flex: none; background: var(--chip); color: var(--muted); border-radius: 999px; padding: 6px 16px; font-size: 14px; white-space: nowrap }
+.chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 500 }
+.chip.more { padding: 6px 10px }
+
+/* task groups */
+main { display: flex; flex-direction: column; gap: 6px; padding-block: 6px 16px }
+.sec-h { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; padding: 12px 2px 6px; width: 100% }
+.sec-h .n { font-size: 12px }
+.sec-h svg { transition: transform .15s }
+.sec-h[aria-expanded="false"] svg { transform: rotate(180deg) }
+.cards { display: flex; flex-direction: column; gap: 10px }
+.card { background: var(--card); border-radius: 8px; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; min-height: 62px; padding: 8px 6px 8px 0 }
+.tick { width: 44px; height: 44px; display: grid; place-items: center }
+.tick span { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #b5bcc8; display: grid; place-items: center }
+.card.done .tick span { background: #c3c9d3; border-color: #c3c9d3 }
+.card.done .tick span::after { content: ""; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg) }
+.body { min-width: 0; text-align: left; padding: 4px 0; display: flex; flex-direction: column; gap: 2px }
+.title { overflow-wrap: anywhere }
+.meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted) }
+.meta .late { color: var(--late) }
+.meta .cat { background: var(--chip); border-radius: 4px; padding: 0 6px }
+.meta .on-cal { color: var(--accent) }
+.card.done .title { color: var(--muted); text-decoration: line-through }
+.card.done .meta, .card.done .meta .late { color: var(--muted); opacity: .7 }
+.acts { display: flex; align-items: center }
+.acts .ibtn { width: 36px; height: 36px; color: #b5bcc8 }
+.acts .ibtn.cal { color: var(--accent) }
+.acts .ibtn.flag-on { color: var(--flag) }
+.all-done { color: var(--muted); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; align-self: center; padding: 18px 8px }
+.empty { color: var(--muted); text-align: center; padding: 48px 16px; display: flex; flex-direction: column; gap: 12px; align-items: center }
+.ghost { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 16px; font-size: 13px; color: var(--ink) }
+
+/* fab + tabbar */
+.fab { position: fixed; right: max(20px, calc(50% - 260px)); right: max(calc(20px + env(safe-area-inset-right, 0px)), calc(50% - 260px)); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; box-shadow: 0 6px 18px rgba(10,156,245,.35); z-index: 6 }
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px) }
+.tabbar .in { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr) }
+.tabbar button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 6px; font-size: 11px; color: var(--muted) }
+.tabbar button[aria-current="page"] { color: var(--accent) }
+
+/* calendar view */
+.month { background: var(--card); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px }
+.month-h { display: flex; align-items: center; justify-content: space-between; font-weight: 700 }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; gap: 2px }
+.grid .wd { font-size: 12px; color: var(--muted); padding: 4px 0 }
+.day { aspect-ratio: 1; max-width: 100%; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 14px; position: relative; font-variant-numeric: tabular-nums }
+.day.out { color: var(--muted); opacity: .45 }
+.day.today { color: var(--accent); font-weight: 700 }
+.day.sel { background: var(--accent); color: #fff }
+.day .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); position: absolute; bottom: 14% }
+.day.sel .dot { background: #fff }
+
+/* me view */
+.panel { background: var(--card); border-radius: 12px; padding: 4px 14px; display: flex; flex-direction: column }
+.panel h2 { font-size: 13px; color: var(--muted); font-weight: 500; margin: 12px 0 4px }
+.row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line) }
+.row:first-of-type { border-top: 0 }
+.row .grow { flex: 1; min-width: 0 }
+.row input[type=text] { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 6px 10px; width: 100% }
+.txt-btn { color: var(--accent); font-size: 14px; padding: 4px 6px }
+.txt-btn.danger { color: var(--late) }
+.note { font-size: 13px; color: var(--muted); line-height: 1.6; padding: 10px 0 }
+
+/* bottom sheet */
+.shade { position: fixed; inset: 0; background: var(--shade); z-index: 20; display: flex; align-items: flex-end; justify-content: center }
+.sheet { background: var(--card); width: 100%; max-width: 560px; border-radius: 16px 16px 0 0; padding-block: 10px calc(18px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; max-height: 92%; overflow-y: auto }
+.grab { width: 36px; height: 4px; border-radius: 2px; background: var(--line); align-self: center }
+.sheet h3 { margin: 0; font-size: 16px }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted) }
+.field input, .field select { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; color: var(--ink); font-size: 15px; width: 100%; min-width: 0 }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
+.quick { display: flex; gap: 6px; flex-wrap: wrap }
+.quick button { background: var(--chip); border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--ink) }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; font-size: 14px }
+.switch small { display: block; color: var(--muted); font-size: 12px }
+.switch input { width: 22px; height: 22px; accent-color: var(--accent); flex: none }
+.btns { display: flex; gap: 10px }
+.btn { flex: 1; text-align: center; border-radius: 10px; padding: 12px; font-weight: 500; text-decoration: none; display: block }
+.btn.pri { background: var(--accent); color: #fff }
+.btn.sec { background: var(--chip); color: var(--ink) }
+.btn.cal { background: var(--accent-soft); color: var(--accent) }
+.confirm { background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--card); padding: 8px 16px; border-radius: 999px; font-size: 13px; z-index: 30; max-width: calc(100% - 32px); text-align: center }
+
+@media (prefers-reduced-motion: reduce) { .sec-h svg { transition: none } }
+</style>
+
+<div class="app">
+  <div class="top gutter">
+    <div class="bar">
+      <h1 id="viewTitle">任務</h1>
+      <span class="sync" id="sync">載入中…</span>
+      <button class="ibtn" id="searchBtn" aria-label="搜尋"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+    </div>
+    <div class="search" id="searchBox" hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="text" id="q" placeholder="搜尋任務" autocomplete="off">
+    </div>
+    <nav class="chips" id="chips" aria-label="分類"></nav>
+  </div>
+
+  <main class="gutter" id="main"></main>
+</div>
+
+<button class="fab" id="fab" aria-label="新增任務"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+
+<nav class="tabbar"><div class="in">
+  <button data-tab="tasks" aria-current="page"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 10h8M8 14h5" stroke-linecap="round"/></svg>任務</button>
+  <button data-tab="cal"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4" stroke-linecap="round"/></svg>日曆</button>
+  <button data-tab="me"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14a4 4 0 0 0 7 0" stroke-linecap="round"/><path d="M9.5 10h.01M14.5 10h.01" stroke-linecap="round" stroke-width="2.6"/></svg>我的</button>
+</div></nav>
+
+<div id="sheetRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+(() => {
+  const $ = (s, el = document) => el.querySelector(s);
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const pad = n => String(n).padStart(2, "0");
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const LS_KEY = "todo-memo-state-v1";
+  const ALL = "__all";
+
+  const ICON = {
+    flag: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 21V4h11l-2 4 2 4H6"/></svg>',
+    flagOn: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 21V4h11l-2 4 2 4H6" /></svg>',
+    cal: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M12 13v5M9.5 15.5h5"/></svg>',
+    chev: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m6 15 6-6 6 6"/></svg>',
+    left: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg>',
+    right: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>',
+  };
+
+  let state = null;   // {lists:[{id,name}], tasks:[{id,listId,title,date,time,flag,done,doneAt,calAdded,created}], active}
+  let docRef = null;
+  let ui = { tab: "tasks", q: "", fold: {}, showAllDone: false, sheet: null, confirm: false, calMonth: null, calSel: null, editingList: null, confirmList: null };
+  let saveTimer = null, saving = Promise.resolve(), dirty = false;
+
+  // ---------- dates ----------
+  const now = new Date();
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const todayStr = ymd(now);
+  const addDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
+  const WD = "日一二三四五六";
+  const fmtDate = s => { const [y, m, d] = s.split("-"); return +y === now.getFullYear() ? `${m}/${d}` : `${y}/${m}/${d}`; };
+
+  // ---------- storage ----------
+  function fresh() {
+    const a = uid(), b = uid(), c = uid();
+    return { lists: [{ id: a, name: "個人" }, { id: b, name: "工作" }, { id: c, name: "要買什麼" }], tasks: [], active: ALL };
+  }
+  function loadLocal() { try { const s = JSON.parse(localStorage.getItem(LS_KEY)); if (s && s.lists) return s; } catch (e) {} return null; }
+  function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
+  const setSync = t => { $("#sync").textContent = t; };
+
+  function commit() {
+    saveLocal(); render();
+    if (!docRef) return;
+    dirty = true; setSync("儲存中…");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      const snap = JSON.parse(JSON.stringify(state));
+      saving = saving.then(() => docRef.set(snap)).then(() => { dirty = false; setSync("已同步"); })
+        .catch(() => setSync("只存在這台裝置"));
+    }, 600);
+  }
+
+  async function connect() {
+    try {
+      const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+      const id = user ? await user.id() : null;
+      if (!db || !id) { setSync("只存在這台裝置"); return; }
+      docRef = db.doc("data/users/" + id + "/memo");
+      const snap = await docRef.get();
+      if (snap.exists && snap.data().lists) { state = JSON.parse(JSON.stringify(snap.data())); saveLocal(); render(); }
+      else if (state.tasks.length) await docRef.set(JSON.parse(JSON.stringify(state)));
+      setSync("已同步");
+      docRef.onSnapshot(s => {
+        if (dirty || s.hasPendingWrites || !s.exists) return;
+        const d = s.data();
+        if (d && d.lists && JSON.stringify(d) !== JSON.stringify(state)) { state = JSON.parse(JSON.stringify(d)); saveLocal(); render(); }
+      }, () => setSync("同步中斷"));
+    } catch (e) { setSync("只存在這台裝置"); }
+  }
+
+  // ---------- google calendar ----------
+  function gcalUrl(t) {
+    const list = state.lists.find(l => l.id === t.listId);
+    const date = t.date || todayStr;
+    let dates;
+    if (t.time) {
+      const s = new Date(`${date}T${t.time}:00`), e = new Date(s.getTime() + (t.mins || 60) * 60000);
+      const f = x => `${x.getFullYear()}${pad(x.getMonth() + 1)}${pad(x.getDate())}T${pad(x.getHours())}${pad(x.getMinutes())}00`;
+      dates = `${f(s)}/${f(e)}`;
+    } else {
+      const s = new Date(date + "T00:00:00"), e = new Date(s.getTime() + 864e5);
+      const f = x => `${x.getFullYear()}${pad(x.getMonth() + 1)}${pad(x.getDate())}`;
+      dates = `${f(s)}/${f(e)}`;
+    }
+    const p = new URLSearchParams({
+      action: "TEMPLATE", text: t.title, dates,
+      details: `打勾備忘錄・${list ? list.name : ""}`,
+      ctz: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Taipei"
+    });
+    return "https://calendar.google.com/calendar/render?" + p.toString();
+  }
+
+  // ---------- render ----------
+  function toast(msg) {
+    const r = $("#toastRoot"); r.innerHTML = `<div class="toast" role="status">${esc(msg)}</div>`;
+    clearTimeout(toast.t); toast.t = setTimeout(() => { r.innerHTML = ""; }, 2200);
+  }
+
+  function renderChips() {
+    const items = [{ id: ALL, name: "所有" }, ...state.lists];
+    $("#chips").innerHTML = items.map(l => `<button class="chip" data-chip="${l.id}" aria-pressed="${state.active === l.id}">${esc(l.name)}</button>`).join("")
+      + `<button class="chip more" data-goto="me" aria-label="管理分類">＋</button>`;
+  }
+
+  function cardHtml(t) {
+    const list = state.lists.find(l => l.id === t.listId);
+    const late = !t.done && t.date && t.date < todayStr;
+    const dateTxt = t.date ? (t.date === todayStr ? "今天" : t.date === addDays(1) ? "明天" : fmtDate(t.date)) + (t.time ? " " + t.time : "") : "";
+    const meta = [
+      dateTxt ? `<span class="${late ? "late" : ""}">${dateTxt}</span>` : "",
+      state.active === ALL && list ? `<span class="cat">${esc(list.name)}</span>` : "",
+      t.calAdded && !t.done ? `<span class="on-cal">已加日曆</span>` : ""
+    ].join("");
+    return `<div class="card ${t.done ? "done" : ""}">
+      <button class="tick" data-tick="${t.id}" aria-label="${t.done ? "取消完成" : "完成"}：${esc(t.title)}"><span></span></button>
+      <button class="body" data-open="${t.id}"><span class="title">${esc(t.title)}</span>${meta ? `<span class="meta">${meta}</span>` : ""}</button>
+      <div class="acts">
+        ${t.done ? "" : `<a class="ibtn cal" href="${gcalUrl(t)}" target="_blank" rel="noopener" data-calgo="${t.id}" aria-label="加到行事曆">${ICON.cal}</a>`}
+        <button class="ibtn ${t.flag ? "flag-on" : ""}" data-flag="${t.id}" aria-label="${t.flag ? "取消重要" : "標為重要"}">${t.flag ? ICON.flagOn : ICON.flag}</button>
+      </div>
+    </div>`;
+  }
+
+  function section(key, label, list) {
+    if (!list.length) return "";
+    const open = !ui.fold[key];
+    return `<button class="sec-h" data-fold="${key}" aria-expanded="${open}">${label}<span class="n">${list.length}</span>${ICON.chev}</button>
+      ${open ? `<div class="cards">${list.map(cardHtml).join("")}</div>` : ""}`;
+  }
+
+  const byWhen = (a, b) => (b.flag ? 1 : 0) - (a.flag ? 1 : 0) ||
+    ((a.date || "9") + (a.time || "99")).localeCompare((b.date || "9") + (b.time || "99")) || a.created - b.created;
+
+  function renderTasks() {
+    const q = ui.q.trim().toLowerCase();
+    let tasks = state.tasks.filter(t => state.active === ALL || t.listId === state.active);
+    if (q) tasks = tasks.filter(t => t.title.toLowerCase().includes(q));
+    const open = tasks.filter(t => !t.done).sort(byWhen);
+    const done = tasks.filter(t => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+    const doneToday = done.filter(t => t.doneAt && ymd(new Date(t.doneAt)) === todayStr);
+
+    if (ui.showAllDone) {
+      return `<button class="sec-h" data-back="1">${ICON.left}返回</button>` +
+        (done.length ? `<div class="cards">${done.map(cardHtml).join("")}</div>` : `<div class="empty">還沒有完成的任務。</div>`);
+    }
+    if (!tasks.length) {
+      const first = !state.tasks.length;
+      return `<div class="empty">${q ? "找不到符合的任務。" : first ? "還沒有任務。按右下角的 ＋ 新增第一件事。" : "這個分類沒有任務。"}
+        ${first && !q ? `<button class="ghost" data-sample="1">先載入幾筆範例看看</button>` : ""}</div>`;
+    }
+    return [
+      section("past", "以前的", open.filter(t => t.date && t.date < todayStr)),
+      section("today", "今天", open.filter(t => t.date === todayStr)),
+      section("future", "未來", open.filter(t => t.date && t.date > todayStr)),
+      section("nodate", "沒有日期", open.filter(t => !t.date)),
+      !open.length ? `<div class="empty">都做完了。</div>` : "",
+      section("doneToday", "今天完成", doneToday),
+      done.length ? `<button class="all-done" data-alldone="1">檢查所有完成的任務</button>` : ""
+    ].join("");
+  }
+
+  function renderCal() {
+    const base = ui.calMonth || todayStr.slice(0, 7);
+    const [y, m] = base.split("-").map(Number);
+    const first = new Date(y, m - 1, 1), start = new Date(first); start.setDate(1 - first.getDay());
+    const sel = ui.calSel || todayStr;
+    const inList = t => state.active === ALL || t.listId === state.active;
+    const hasTask = new Set(state.tasks.filter(t => t.date && !t.done && inList(t)).map(t => t.date));
+    let cells = "";
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const s = ymd(d);
+      cells += `<button class="day ${d.getMonth() !== m - 1 ? "out" : ""} ${s === todayStr ? "today" : ""} ${s === sel ? "sel" : ""}" data-day="${s}" aria-label="${s}">${d.getDate()}${hasTask.has(s) ? '<span class="dot"></span>' : ""}</button>`;
+    }
+    const dayTasks = state.tasks.filter(t => t.date === sel && inList(t)).sort((a, b) => a.done - b.done || byWhen(a, b));
+    const [sy, sm, sd] = sel.split("-").map(Number);
+    return `<div class="month">
+        <div class="month-h"><button class="ibtn" data-mon="-1" aria-label="上個月">${ICON.left}</button><span>${y} 年 ${m} 月</span><button class="ibtn" data-mon="1" aria-label="下個月">${ICON.right}</button></div>
+        <div class="grid">${[...WD].map(w => `<span class="wd">${w}</span>`).join("")}${cells}</div>
+      </div>
+      <div class="sec-h">${sm} 月 ${sd} 日（${WD[new Date(sy, sm - 1, sd).getDay()]}）<span class="n">${dayTasks.length}</span></div>
+      ${dayTasks.length ? `<div class="cards">${dayTasks.map(cardHtml).join("")}</div>` : `<div class="empty" style="padding:24px">這天沒有任務。</div>`}`;
+  }
+
+  function renderMe() {
+    const rows = state.lists.map(l => {
+      const n = state.tasks.filter(t => t.listId === l.id && !t.done).length;
+      if (ui.editingList === l.id) return `<form class="row" data-renameform="${l.id}"><span class="grow"><input type="text" id="rn-${l.id}" value="${esc(l.name)}" maxlength="12"></span><button class="txt-btn" type="submit">完成</button></form>`;
+      if (ui.confirmList === l.id) return `<div class="row"><span class="grow">刪除「${esc(l.name)}」和裡面 ${state.tasks.filter(t => t.listId === l.id).length} 項任務？</span><button class="txt-btn danger" data-dellistyes="${l.id}">刪除</button><button class="txt-btn" data-cancel="1">取消</button></div>`;
+      return `<div class="row"><span class="grow">${esc(l.name)} <span style="color:var(--muted);font-size:12px">${n} 項未完成</span></span><button class="txt-btn" data-rename="${l.id}">改名</button><button class="txt-btn danger" data-dellist="${l.id}">刪除</button></div>`;
+    }).join("");
+    const openAll = state.tasks.filter(t => !t.done).length, doneAll = state.tasks.length - openAll;
+    return `<div class="panel">
+        <h2>分類</h2>${rows}
+        <form class="row" id="newListForm"><span class="grow"><input type="text" id="newListName" placeholder="新分類名稱，例如：攝影案" maxlength="12"></span><button class="txt-btn" type="submit">新增</button></form>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h2>統計</h2>
+        <div class="row"><span class="grow">還沒做</span><b>${openAll}</b></div>
+        <div class="row"><span class="grow">做完了</span><b>${doneAll}</b></div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h2>加到手機行事曆</h2>
+        <p class="note">按任務右邊的日曆圖示，會開啟 Google 日曆的新增活動頁，標題和時間都填好了，按「儲存」就會提醒你。<br>
+        iPhone 想在內建「行事曆」看到：到「設定 › App › 行事曆 › 行事曆帳號」加入同一個 Google 帳號。<br>
+        沒設時間的任務會變成整天活動。</p>
+      </div>`;
+  }
+
+  function renderSheet() {
+    const root = $("#sheetRoot");
+    const s = ui.sheet;
+    if (!s) { root.innerHTML = ""; return; }
+    const t = s.draft;
+    const listOpts = state.lists.map(l => `<option value="${l.id}" ${l.id === t.listId ? "selected" : ""}>${esc(l.name)}</option>`).join("");
+    root.innerHTML = `<div class="shade" data-shade="1"><form class="sheet gutter" id="taskForm" role="dialog" aria-label="${s.isNew ? "新增任務" : "編輯任務"}">
+      <span class="grab"></span>
+      <h3>${s.isNew ? "新增任務" : "編輯任務"}</h3>
+      <label class="field">要做什麼<input type="text" id="fTitle" value="${esc(t.title)}" maxlength="120" autocomplete="off" placeholder="例如：交修圖檔給客戶"></label>
+      <label class="field">分類<select id="fList">${listOpts}</select></label>
+      <div class="quick"><button type="button" data-q="0">今天</button><button type="button" data-q="1">明天</button><button type="button" data-q="7">下週</button><button type="button" data-q="none">不設日期</button></div>
+      <div class="two">
+        <label class="field">日期<input type="date" id="fDate" value="${t.date}"></label>
+        <label class="field">時間<input type="time" id="fTime" value="${t.time}"></label>
+      </div>
+      <label class="field">在行事曆佔多久<select id="fMins">${[15, 30, 60, 120].map(n => `<option value="${n}" ${n === (t.mins || 60) ? "selected" : ""}>${n < 60 ? n + " 分鐘" : n / 60 + " 小時"}</option>`).join("")}</select></label>
+      ${s.isNew ? `<label class="switch"><span>儲存後加到行事曆<small>會開啟 Google 日曆，按儲存才會建立提醒</small></span><input type="checkbox" id="fCal" ${s.addCal ? "checked" : ""}></label>` : ""}
+      ${!s.isNew && !t.done ? `<a class="btn cal" id="fCalGo" href="${gcalUrl(t)}" target="_blank" rel="noopener">加到行事曆</a>` : ""}
+      <div class="btns"><button type="button" class="btn sec" data-close="1">取消</button><button type="submit" class="btn pri">儲存</button></div>
+      ${!s.isNew ? (ui.confirm
+        ? `<div class="confirm"><span style="flex:1">確定刪除這項任務？</span><button type="button" class="txt-btn danger" data-delyes="1">刪除</button><button type="button" class="txt-btn" data-delno="1">取消</button></div>`
+        : `<button type="button" class="txt-btn danger" data-del="1" style="align-self:center">刪除任務</button>`) : ""}
+    </form></div>`;
+    if (s.isNew && !s.focused) { s.focused = true; setTimeout(() => $("#fTitle") && $("#fTitle").focus(), 30); }
+  }
+
+  function render() {
+    if (state.active !== ALL && !state.lists.find(l => l.id === state.active)) state.active = ALL;
+    renderChips();
+    $("#viewTitle").textContent = { tasks: "任務", cal: "日曆", me: "我的" }[ui.tab];
+    $("#chips").hidden = ui.tab === "me";
+    $("#searchBtn").hidden = ui.tab !== "tasks";
+    if (ui.tab !== "tasks") $("#searchBox").hidden = true;
+    $("#fab").hidden = ui.tab === "me";
+    document.querySelectorAll(".tabbar button").forEach(b => {
+      if (b.dataset.tab === ui.tab) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+    $("#main").innerHTML = ui.tab === "tasks" ? renderTasks() : ui.tab === "cal" ? renderCal() : renderMe();
+    renderSheet();
+  }
+
+  // ---------- sheet helpers ----------
+  function readForm() {
+    const d = ui.sheet.draft;
+    d.title = $("#fTitle").value; d.listId = $("#fList").value;
+    d.date = $("#fDate").value; d.time = $("#fTime").value; d.mins = +$("#fMins").value;
+    if ($("#fCal")) ui.sheet.addCal = $("#fCal").checked;
+    return d;
+  }
+  function openNew() {
+    const listId = state.active !== ALL ? state.active : (state.lists[0] && state.lists[0].id);
+    if (!listId) { ui.tab = "me"; render(); toast("先新增一個分類"); return; }
+    const date = ui.tab === "cal" ? (ui.calSel || todayStr) : "";
+    ui.sheet = { isNew: true, addCal: false, draft: { title: "", listId, date, time: "", mins: 60 } };
+    ui.confirm = false; renderSheet();
+  }
+
+  // ---------- events ----------
+  document.addEventListener("click", e => {
+    const el = e.target.closest("button, a, [data-shade]");
+    if (!el) return;
+    const d = el.dataset;
+
+    if (d.shade && e.target === el) { ui.sheet = null; renderSheet(); return; }
+    if (d.tab) { ui.tab = d.tab; ui.showAllDone = false; ui.editingList = ui.confirmList = null; render(); window.scrollTo(0, 0); return; }
+    if (d.goto) { ui.tab = d.goto; render(); return; }
+    if (d.chip) { state.active = d.chip; ui.showAllDone = false; commit(); return; }
+    if (el.id === "searchBtn") { const b = $("#searchBox"); b.hidden = !b.hidden; if (!b.hidden) $("#q").focus(); else { ui.q = ""; $("#q").value = ""; render(); } return; }
+    if (el.id === "fab") { openNew(); return; }
+    if (d.fold) { ui.fold[d.fold] = !ui.fold[d.fold]; render(); return; }
+    if (d.alldone) { ui.showAllDone = true; render(); window.scrollTo(0, 0); return; }
+    if (d.back) { ui.showAllDone = false; render(); return; }
+    if (d.sample) { loadSample(); return; }
+
+    if (d.tick) {
+      const t = state.tasks.find(x => x.id === d.tick);
+      t.done = !t.done; t.doneAt = t.done ? Date.now() : null;
+      commit(); if (t.done) toast("完成了：" + t.title); return;
+    }
+    if (d.flag) { const t = state.tasks.find(x => x.id === d.flag); t.flag = !t.flag; commit(); return; }
+    if (d.calgo) { const t = state.tasks.find(x => x.id === d.calgo); t.calAdded = true; setTimeout(commit, 0); return; }
+    if (d.open) {
+      const t = state.tasks.find(x => x.id === d.open);
+      ui.sheet = { isNew: false, id: t.id, draft: { ...t, mins: t.mins || 60 } }; ui.confirm = false; renderSheet(); return;
+    }
+
+    // calendar tab
+    if (d.mon) {
+      const [y, m] = (ui.calMonth || todayStr.slice(0, 7)).split("-").map(Number);
+      const nd = new Date(y, m - 1 + +d.mon, 1); ui.calMonth = `${nd.getFullYear()}-${pad(nd.getMonth() + 1)}`; render(); return;
+    }
+    if (d.day) { ui.calSel = d.day; if (d.day.slice(0, 7) !== (ui.calMonth || todayStr.slice(0, 7))) ui.calMonth = d.day.slice(0, 7); render(); return; }
+
+    // me tab
+    if (d.rename) { ui.editingList = d.rename; ui.confirmList = null; render(); $("#rn-" + d.rename).focus(); return; }
+    if (d.dellist) { ui.confirmList = d.dellist; ui.editingList = null; render(); return; }
+    if (d.cancel) { ui.confirmList = null; render(); return; }
+    if (d.dellistyes) {
+      state.lists = state.lists.filter(l => l.id !== d.dellistyes);
+      state.tasks = state.tasks.filter(t => t.listId !== d.dellistyes);
+      ui.confirmList = null; commit(); return;
+    }
+
+    // sheet
+    if (d.close) { ui.sheet = null; renderSheet(); return; }
+    if (d.q) {
+      readForm();
+      ui.sheet.draft.date = d.q === "none" ? "" : addDays(+d.q);
+      if (d.q === "none") ui.sheet.draft.time = "";
+      renderSheet(); return;
+    }
+    if (el.id === "fCalGo") {
+      const t = state.tasks.find(x => x.id === ui.sheet.id);
+      Object.assign(t, readForm(), { title: ui.sheet.draft.title.trim() || t.title, calAdded: true });
+      el.href = gcalUrl(t);
+      ui.sheet = null; setTimeout(commit, 0); return;
+    }
+    if (d.del) { readForm(); ui.confirm = true; renderSheet(); return; }
+    if (d.delno) { readForm(); ui.confirm = false; renderSheet(); return; }
+    if (d.delyes) { state.tasks = state.tasks.filter(t => t.id !== ui.sheet.id); ui.sheet = null; commit(); toast("已刪除"); return; }
+  });
+
+  // keep the edit sheet's calendar link current while typing
+  document.addEventListener("input", e => {
+    if (e.target.id === "q") { ui.q = e.target.value; $("#main").innerHTML = renderTasks(); return; }
+    if (ui.sheet && !ui.sheet.isNew && e.target.closest("#taskForm") && $("#fCalGo")) {
+      const d = readForm(); $("#fCalGo").href = gcalUrl({ ...d, title: d.title.trim() || "待辦" });
+    }
+  });
+
+  document.addEventListener("submit", e => {
+    e.preventDefault();
+    const f = e.target;
+    if (f.id === "taskForm") {
+      const d = readForm(); d.title = d.title.trim();
+      if (!d.title) { $("#fTitle").focus(); toast("先寫下要做什麼"); return; }
+      if (ui.sheet.isNew) {
+        const t = { id: uid(), listId: d.listId, title: d.title, date: d.date, time: d.time, mins: d.mins, flag: false, done: false, created: Date.now() };
+        const wantCal = ui.sheet.addCal;
+        state.tasks.push(t); ui.sheet = null;
+        if (wantCal) {
+          // open from inside the submit gesture so the phone treats it as a tap
+          const a = document.createElement("a"); a.href = gcalUrl(t); a.target = "_blank"; a.rel = "noopener";
+          document.body.appendChild(a); a.click(); a.remove();
+          t.calAdded = true;
+        }
+        commit(); toast(wantCal ? "已新增，正在開啟 Google 日曆" : "已新增");
+      } else {
+        const t = state.tasks.find(x => x.id === ui.sheet.id);
+        Object.assign(t, { title: d.title, listId: d.listId, date: d.date, time: d.time, mins: d.mins });
+        ui.sheet = null; commit(); toast("已儲存");
+      }
+      return;
+    }
+    if (f.id === "newListForm") {
+      const name = $("#newListName").value.trim(); if (!name) return;
+      state.lists.push({ id: uid(), name }); commit(); toast("已新增分類「" + name + "」"); return;
+    }
+    if (f.dataset.renameform) {
+      const id = f.dataset.renameform, name = $("#rn-" + id).value.trim();
+      if (name) state.lists.find(l => l.id === id).name = name;
+      ui.editingList = null; commit();
+    }
+  });
+
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && ui.sheet) { ui.sheet = null; renderSheet(); } });
+
+  function loadSample() {
+    const L = name => { let l = state.lists.find(x => x.name === name); if (!l) { l = { id: uid(), name }; state.lists.push(l); } return l.id; };
+    const mk = (list, title, date = "", time = "", extra = {}) =>
+      ({ id: uid(), listId: L(list), title: "（範例）" + title, date, time, mins: 60, flag: false, done: false, created: Date.now(), ...extra });
+    state.tasks.push(
+      mk("工作", "交婚紗修圖檔", addDays(-2), "", { flag: true }),
+      mk("工作", "回覆客戶報價", addDays(0), "10:00"),
+      mk("工作", "分鏡練習", addDays(3), "14:00"),
+      mk("個人", "繳電話費", addDays(-1)),
+      mk("個人", "整理作品集"),
+      mk("要買什麼", "相機電池 NP-W126S", addDays(1)),
+      mk("個人", "洗衣服", "", "", { done: true, doneAt: Date.now() }),
+    );
+    commit();
+  }
+
+  // ---------- boot ----------
+  state = loadLocal() || fresh();
+  if (!state.active) state.active = ALL;
+  render();
+  setSync("只存在這台裝置");
+  if (window.claude && claude.use) connect();
+})();
+</script>
